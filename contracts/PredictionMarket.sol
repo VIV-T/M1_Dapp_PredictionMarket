@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+
 contract PredictionMarket {
+    using ECDSA for bytes32;
+
     enum Stage { Active, Pending, Resolved }
 
     struct Market {
@@ -19,13 +24,18 @@ contract PredictionMarket {
 
     struct Bet {
         uint256 amount;
-        uint8 choice; // 0 or 1
+        uint8 choice;
         bool exists;
     }
 
+    address public oracleAddress;
     Market[] public markets;
     mapping(uint256 => mapping(address => Bet)) public userBets;
     uint256 public nextMarketId;
+
+    constructor(address _oracleAddress) {
+        oracleAddress = _oracleAddress;
+    }
 
     function createMarket(
         string memory _title, 
@@ -33,8 +43,7 @@ contract PredictionMarket {
         string memory _opB, 
         uint256 _durationSeconds
     ) external {
-        require(_durationSeconds > 0, "Invalid duration");
-        
+        require(_durationSeconds > 0, "Duree invalide");
         markets.push(Market({
             id: nextMarketId,
             title: _title,
@@ -52,19 +61,17 @@ contract PredictionMarket {
 
     function placeBet(uint256 _marketId, uint8 _choice) external payable {
         Market storage m = markets[_marketId];
-        require(block.timestamp < m.endTime, "Betting period ended");
-        require(msg.value > 0, "Insufficient amount");
-        require(_choice == 0 || _choice == 1, "Invalid choice");
-
+        require(block.timestamp < m.endTime, "Pari termine");
+        require(msg.value > 0, "Montant insuffisant");
+        require(_choice == 0 || _choice == 1, "Choix invalide");
+        
         Bet storage userBet = userBets[_marketId][msg.sender];
 
-        // RESTRICTION LOGIC
         if (userBet.amount > 0) {
-            // If the user already bet, they MUST choose the same option
-            require(userBet.choice == _choice, "You already bet on the other option");
+            require(userBet.choice == _choice, "Vous avez deja parie sur l'autre option");
         } else {
-            // First bet: store their choice
             userBet.choice = _choice;
+            userBet.exists = true;
         }
 
         userBet.amount += msg.value;
@@ -73,37 +80,39 @@ contract PredictionMarket {
         else m.poolB += msg.value;
     }
 
-    function resolveMarket(uint256 _marketId, uint8 _outcome) external {
+    function resolveMarket(uint256 _marketId, uint8 _outcome, bytes memory _signature) external {
         Market storage m = markets[_marketId];
-        require(block.timestamp >= m.endTime, "Event not finished");
+        require(block.timestamp >= m.endTime, "Evenement non termine");
+        require(m.stage != Stage.Resolved, "Marche deja resolu");
+
+        bytes32 messageHash = keccak256(abi.encodePacked(address(this), _marketId, _outcome));
+        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        address signer = ethSignedMessageHash.recover(_signature);
+        require(signer == oracleAddress, "Signature invalide");
+
         m.winningOutcome = _outcome;
         m.stage = Stage.Resolved;
     }
 
-    function getMarkets() external view returns (Market[] memory) {
-        return markets;
-    }
-
-    // --- NEW WITHDRAW FUNCTION ---
     function claimGain(uint256 _marketId) external {
         Market storage m = markets[_marketId];
-        
-        require(m.stage == Stage.Resolved, "Market not resolved");
+        require(m.stage == Stage.Resolved, "Marche non resolu");
         
         Bet storage userBet = userBets[_marketId][msg.sender];
-        require(userBet.amount > 0, "No bet found");
-        require(userBet.choice == m.winningOutcome, "You did not win");
+        require(userBet.amount > 0, "Aucun pari trouve");
+        require(userBet.choice == m.winningOutcome, "Vous n'avez pas gagne");
 
         uint256 winningPool = (m.winningOutcome == 0) ? m.poolA : m.poolB;
-        require(winningPool > 0, "No bets on the winner");
         uint256 losingPool = (m.winningOutcome == 0) ? m.poolB : m.poolA;
-
-        // Polymarket formula: Stake + proportional share of the losing pool
-        // Reward = UserStake + (UserStake / TotalWinningStakes) * TotalLosingStakes
-        uint256 reward = userBet.amount + (userBet.amount * losingPool / winningPool);
-
-        userBet.amount = 0; // Reentrancy safety: clear before sending
         
+        uint256 reward = userBet.amount + (userBet.amount * losingPool / winningPool);
+        
+        userBet.amount = 0; 
         payable(msg.sender).transfer(reward);
+    }
+
+    function getMarkets() external view returns (Market[] memory) {
+        return markets;
     }
 }
