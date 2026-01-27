@@ -1,0 +1,43 @@
+Here are the cmd to run to be able to run the project:
+
+- "truffle init" in the main folder : create the main architecture to deploy the contract (DONE)
+- "npm init -f" in the client folder : to initialize the frontend architecture (DONE)
+
+- "npm install" : to install all the necessary dependencies (ESSENTIAL TO RUN - dependencies not in the git...)
+    => run this cmd at the root + in the "client/" folder to install all the dependencies properly.
+
+
+- "truffle compile" : to comile the contract written
+- "truffle migrate --reset --network development" : to deploy the contract and be able to use them in the dapp.
+- "truffle test" : to launch test (I didn't try this for now...)
+
+To run the front end :
+- "npm run deploy" : deployement of the smart contract + copy into the front end to be able to use it
+- change the contract address in web3.js with contract address that you can find in ganache.
+- "npm start" to start the application
+
+
+
+Dapp spécifications : 
+
+L'application est composée de 2 fenetre distinctes :
+ - Personnelle : regroupe toutes les information relative à l'utilisateur 
+ - Globale : regroupe toutes les informations de la blockchain.
+
+Sur chacune de ces 2 fenetres, 3 onglets doivent etre présents : 
+ - Active : il s'agit des Bets sur lesquels il est possible de parier.
+ - Pending : il s'agit des Bets en cours de résolution (oracle UMA).
+ - Resolved : il s'agit des Bets terminés, où les utilisateurs ont été payés.
+
+
+Regles supplémentaires : 
+ - Tous le monde peut créer de nouveaux Bets en précisant ses caractéristiques :
+	- nom
+	- option 1
+	- option 2
+ - Les Bets actives ont une datetime limite, quand celle ci est ecoulé, il passe en statut "Pending" en attente de resolution.
+ - Le taux de réussite (% de chance) dépend du nombre de parieur et du montant, il est mis à jour en temps réel, à chaque fois qu'une mise est rajouté par un parieur.
+ - Les Bets au statut "Pending" s'appuient sur l'Oracle UMA pour etre resolu: Vote des user avec engagement d'un nombre d'Ether determiné. Challenge possible de la resolution actuelle pour eviter la triche, ...
+ - Quand un Bet passe au statut solved : les parieurs se voit directement payé avec le pool du pari. Leur reward est ajouté à leur portefeuille.
+
+Sur la fenetre profil, en plus des 3 onglets - paramétré pour ne renvoyer que les Bets auxquels un utilisateur a participé, on retrouve aussi un onglet profil, qui permet de visualiser toutes les informations de l'utilisateur (nom, compte, montant du portefeuille, etc..)
