@@ -5,7 +5,7 @@ Here are the cmd to run to be able to run the project:
 
 If you already have the project structure:
 - "npm install" : to install all the necessary dependencies (ESSENTIAL TO RUN - dependencies not in the git...)
-    => run this cmd at the root + in the "client/" folder to install all the dependencies properly.
+    => run this cmd in the "client/" folder to install all the dependencies properly.
 
 - run "npm install web3 ethers react-router-dom" in client folder
 
